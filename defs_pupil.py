@@ -28,20 +28,12 @@ from itertools import chain
 import logging
 import logging.handlers
 import logging.config
-
 import copy
-
 from IPython import embed as shell
 
-sys.path.append(os.environ['ANALYSIS_HOME'])
-from Tools.log import *
-from Tools.Operators import ArrayOperator, EDFOperator, HDFEyeOperator, EyeSignalOperator
-from Tools.Operators.EyeSignalOperator import detect_saccade_from_data
-from Tools.Operators.CommandLineOperator import ExecCommandLine
-from Tools.other_scripts.plotting_tools import *
-from Tools.other_scripts.circularTools import *
-from Tools.other_scripts import functions_jw as myfuncs
-from Tools.other_scripts import functions_jw_GLM as GLM
+import hedfpy
+
+import myfuncs
 
 matplotlib.rcParams['pdf.fonttype'] = 42
 matplotlib.rcParams['ps.fonttype'] = 42
@@ -69,31 +61,21 @@ class pupilPreprocessSession(object):
         self.version = version
         try:
             os.mkdir(os.path.join(project_directory, experiment_name))
-            os.mkdir(os.path.join(project_directory, experiment_name, self.subject.initials))
+            os.mkdir(os.path.join(project_directory, experiment_name, self.subject))
         except OSError:
             pass
         self.project_directory = project_directory
-        self.base_directory = os.path.join(self.project_directory, self.experiment_name, self.subject.initials)
+        self.base_directory = os.path.join(self.project_directory, self.experiment_name, self.subject)
         self.create_folder_hierarchy()
-        self.hdf5_filename = os.path.join(self.base_directory, 'processed', self.subject.initials + '.hdf5')
-        self.ho = HDFEyeOperator.HDFEyeOperator(self.hdf5_filename)
-        self.velocity_profile_duration = self.signal_profile_duration = 100
-        self.loggingLevel = loggingLevel
-        self.logger = logging.getLogger(self.__class__.__name__)
-        self.logger.setLevel(self.loggingLevel)
-        addLoggingHandler(logging.handlers.TimedRotatingFileHandler(os.path.join(self.base_directory, 'log', 'sessionLogFile.log'), when='H', delay=2, backupCount=10), loggingLevel=self.loggingLevel)
-        loggingLevelSetup()
-        for handler in logging_handlers:
-            self.logger.addHandler(handler)
-        
-        self.logger.info('starting analysis in ' + self.base_directory)
+        self.hdf5_filename = os.path.join(self.base_directory, 'processed', self.subject + '.hdf5')
+        self.ho = hedfpy.HDFEyeOperator(self.hdf5_filename)
         self.sample_rate_new = int(sample_rate_new)
         self.downsample_rate = int(1000 / sample_rate_new)
         
     def create_folder_hierarchy(self):
         """createFolderHierarchy does... guess what."""
         this_dir = self.project_directory
-        for d in [self.experiment_name, self.subject.initials]:
+        for d in [self.experiment_name, self.subject]:
             try:
                 this_dir = os.path.join(this_dir, d)
                 os.mkdir(this_dir)
@@ -110,13 +92,12 @@ class pupilPreprocessSession(object):
                 pass
     
     def delete_hdf5(self):
-        os.system('rm {}'.format(os.path.join(self.base_directory, 'processed', self.subject.initials + '.hdf5')))
+        os.system('rm {}'.format(os.path.join(self.base_directory, 'processed', self.subject + '.hdf5')))
     
     def import_raw_data(self, edf_files, aliases):
         """import_raw_data loops across edf_files and their respective aliases and copies and renames them into the raw directory."""
         for (edf_file, alias,) in zip(edf_files, aliases):
-            self.logger.info('importing file ' + edf_file + ' as ' + alias)
-            ExecCommandLine('cp "' + edf_file + '" "' + os.path.join(self.base_directory, 'raw', alias + '.edf"'))
+            os.system('cp "' + edf_file + '" "' + os.path.join(self.base_directory, 'raw', alias + '.edf"'))
     
     def import_all_data(self, aliases):
         """import_all_data loops across the aliases of the sessions and converts the respective edf files, adds them to the self.ho's hdf5 file. """
@@ -310,7 +291,7 @@ class pupilPreprocessSession(object):
                 pass
             
     def process_runs(self, alias, artifact_rejection='strict', create_pupil_BOLD_regressor=False):
-        print 'subject {}; {}'.format(self.subject.initials, alias)
+        print 'subject {}; {}'.format(self.subject, alias)
         print '##############################'
         
         self.artifact_rejection = artifact_rejection
@@ -405,7 +386,7 @@ class pupilPreprocessSession(object):
         parameters_joined = pd.concat(parameters)
         if create_pupil_BOLD_regressor:
             pupil_BOLD_regressors_joined = np.hstack(pupil_BOLD_regressors)
-            np.save(os.path.join(self.project_directory, 'data', self.subject.initials, 'pupil_BOLD_regressors'), pupil_BOLD_regressors_joined)
+            np.save(os.path.join(self.project_directory, 'data', self.subject, 'pupil_BOLD_regressors'), pupil_BOLD_regressors_joined)
         bp_lp = np.concatenate(bp_lp)
         bp_bp = np.concatenate(bp_bp)
         tpr_lp = np.concatenate(tpr_lp)
@@ -445,7 +426,7 @@ class pupilPreprocessSession(object):
             parameters_joined['pupil_d_feed'] = tpr_feed_bp
             parameters_joined['pupil_b_feed_lp'] = bp_feed_lp
             parameters_joined['pupil_d_feed_lp'] = tpr_feed_lp
-        parameters_joined['subject'] = self.subject.initials
+        parameters_joined['subject'] = self.subject
         self.ho.data_frame_to_hdf('', 'parameters_joined', parameters_joined)
     
 class pupilAnalyses(object):
@@ -455,9 +436,9 @@ class pupilAnalyses(object):
         self.experiment_name = experiment_name
         self.experiment = experiment_nr
         self.project_directory = project_directory
-        self.base_directory = os.path.join(self.project_directory, self.experiment_name, self.subject.initials)
-        self.hdf5_filename = os.path.join(self.base_directory, 'processed', self.subject.initials + '.hdf5')
-        self.ho = HDFEyeOperator.HDFEyeOperator(self.hdf5_filename)
+        self.base_directory = os.path.join(self.project_directory, self.experiment_name, self.subject)
+        self.hdf5_filename = os.path.join(self.base_directory, 'processed', self.subject + '.hdf5')
+        self.ho = hedfpy.HDFEyeOperator(self.hdf5_filename)
         self.sample_rate_new = int(sample_rate_new)
         self.downsample_rate = int(1000 / sample_rate_new)
         
@@ -513,9 +494,9 @@ class pupilAnalyses(object):
         
         nr_runs = (pd.Series(np.array(self.parameters_joined.trial_nr))==0).sum()
         start_run = np.where(pd.Series(np.array(self.parameters_joined.trial_nr))==0)[0]
-        subject = np.repeat(self.subject.initials,len(np.array(self.parameters_joined.trial_nr)))
+        subject = np.repeat(self.subject,len(np.array(self.parameters_joined.trial_nr)))
         
-        if self.subject.initials in ['DE', 'DL', 'JG', 'LH', 'LP', 'NS', 'TK']:
+        if self.subject in ['DE', 'DL', 'JG', 'LH', 'LP', 'NS', 'TK']:
             self.right = self.yes
         else:
             self.right = -self.yes
@@ -543,7 +524,7 @@ class pupilAnalyses(object):
         'nr_blinks' : pd.Series(np.array(self.parameters_joined.blinks_nr, dtype=int)),
         }
         data = pd.DataFrame(d)
-        data.to_csv(os.path.join(self.project_directory, 'data', self.subject.initials, 'pupil_data.csv'))
+        data.to_csv(os.path.join(self.project_directory, 'data', self.subject, 'pupil_data.csv'))
         
     def GLM(self, aliases):
         
@@ -686,8 +667,8 @@ class pupilAnalyses(object):
             betas_0 = np.linalg.norm(linear_model.betas.reshape(len(regressor_types),3), axis=1) * np.sign(linear_model.betas.reshape(len(regressor_types),3))[:,0]
         else:
             betas_0 = linear_model.betas
-        np.save(os.path.join(self.project_directory, 'data', 'across', 'pupil_GLM', 'GLM_betas_0_{}.npy'.format(self.subject.initials)), betas_0)
-        np.save(os.path.join(self.project_directory, 'data', 'across', 'pupil_GLM', 'GLM_betas_0_R_{}.npy'.format(self.subject.initials)), best_R)
+        np.save(os.path.join(self.project_directory, 'data', 'across', 'pupil_GLM', 'GLM_betas_0_{}.npy'.format(self.subject)), betas_0)
+        np.save(os.path.join(self.project_directory, 'data', 'across', 'pupil_GLM', 'GLM_betas_0_R_{}.npy'.format(self.subject)), best_R)
         
         # plot cue locked:
         x = np.linspace(-1,5,len_epoch / downsample_rate)
@@ -752,9 +733,9 @@ class pupilAnalyses(object):
             betas_0 = np.linalg.norm(linear_model.betas.reshape(len(regressor_types),3), axis=1) * np.sign(linear_model.betas.reshape(len(regressor_types),3))[:,0]
         else:
             betas_0 = linear_model.betas
-        np.save(os.path.join(self.project_directory, 'data', 'across', 'pupil_GLM', 'GLM_betas_0_{}_pupil_split.npy'.format(self.subject.initials)), betas_0)
+        np.save(os.path.join(self.project_directory, 'data', 'across', 'pupil_GLM', 'GLM_betas_0_{}_pupil_split.npy'.format(self.subject)), betas_0)
         
-        return {'ID':self.subject.initials, 'R':best_R, 'w':w, 'tmax':tmax,}
+        return {'ID':self.subject, 'R':best_R, 'w':w, 'tmax':tmax,}
         
         
         
@@ -934,7 +915,7 @@ class pupilAnalyses(object):
         fig.savefig(os.path.join(self.base_directory, 'figs', 'GLM_l', 'GLM_2b.pdf'))
 
         # # save:
-        # np.save(os.path.join(self.project_directory, 'across_data', 'GLM_betas_0_{}.npy'.format(self.subject.initials)), betas_0)
+        # np.save(os.path.join(self.project_directory, 'across_data', 'GLM_betas_0_{}.npy'.format(self.subject)), betas_0)
         fig = plt.figure(figsize=(12,2))
         x = np.linspace(0,linear_model.working_data_array.shape[0]/new_sample_rate,linear_model.working_data_array.shape[0])
         plt.plot(x, linear_model.working_data_array, color='r', lw=0.5)
@@ -951,10 +932,10 @@ class pupilAnalyses(object):
         fig.savefig(os.path.join(self.base_directory, 'figs', 'GLM_l', 'measured_vs_predicted_2.pdf'))
         
         print
-        print 'latency = {}, subj = {}'.format(best_latency, self.subject.initials)
+        print 'latency = {}, subj = {}'.format(best_latency, self.subject)
         print
 
-        return {'ID':self.subject.initials, 'R':best_R, 'latency':best_latency,}
+        return {'ID':self.subject, 'R':best_R, 'latency':best_latency,}
     
     def GLM_fit(self, aliases):
         
@@ -1142,7 +1123,7 @@ class pupilAnalyses(object):
         fig.savefig(os.path.join(self.base_directory, 'figs', 'GLM', 'GLM_2b.pdf'))
 
         # # save:
-        # np.save(os.path.join(self.project_directory, 'across_data', 'GLM_betas_0_{}.npy'.format(self.subject.initials)), betas_0)
+        # np.save(os.path.join(self.project_directory, 'across_data', 'GLM_betas_0_{}.npy'.format(self.subject)), betas_0)
         fig = plt.figure(figsize=(12,2))
         x = np.linspace(0,linear_model.working_data_array.shape[0]/new_sample_rate,linear_model.working_data_array.shape[0])
         plt.plot(x, linear_model.working_data_array, color='r', lw=0.5)
@@ -1159,10 +1140,10 @@ class pupilAnalyses(object):
         fig.savefig(os.path.join(self.base_directory, 'figs', 'GLM', 'measured_vs_predicted_2.pdf'))
         
         print
-        print 'w = {}, tmax = {}, subj = {}'.format(best_w, best_tmax, self.subject.initials)
+        print 'w = {}, tmax = {}, subj = {}'.format(best_w, best_tmax, self.subject)
         print
         
-        return {'ID':self.subject.initials, 'R':best_R, 'w':best_w, 'tmax':best_tmax,} 
+        return {'ID':self.subject, 'R':best_R, 'w':best_w, 'tmax':best_tmax,} 
         
 class pupilAnalysesAcross(object):
     def __init__(self, subjects, experiment_name, project_directory, sample_rate_new=50):
@@ -1178,7 +1159,7 @@ class pupilAnalysesAcross(object):
         for s in self.subjects:
             self.base_directory = os.path.join(self.project_directory, self.experiment_name, s)
             self.hdf5_filename = os.path.join(self.base_directory, 'processed', s + '.hdf5')
-            self.ho = HDFEyeOperator.HDFEyeOperator(self.hdf5_filename)
+            self.ho = hedfpy.HDFEyeOperator(self.hdf5_filename)
             
             try:
                 parameters.append(self.ho.read_session_data('', 'parameters_joined'))

@@ -8,48 +8,44 @@ import pandas as pd
 from IPython import embed as shell
 import glob
 
-sys.path.append( os.environ['ANALYSIS_HOME'] )
-import Tools.Operators.HDFEyeOperator
-from Tools.Subjects.Subject import Subject
-
 project_directory = '/home/degee/research/2013_pupil_yesno/data2/'
 raw_data = '/home/raw_data/UvA/Donner_lab/2017_eLife/2_pupil_yesno_visual/'
 
 sjs_all = []
 subjects = [
-            'sub-01',
-            'sub-02',
-            'sub-03',
-            'sub-04',
-            'sub-05',
-            'sub-06',
-            'sub-07',
-            'sub-08',
-            'sub-09',
-            'sub-10',
-            'sub-11',
-            'sub-12',
-            'sub-13',
-            'sub-14',
-            'sub-15',
-            'sub-16',
-            'sub-17',
-            'sub-18',
-            'sub-19',
-            'sub-20',
-            'sub-21',
-            'sub-22',
-            'sub-23',
-            'sub-24',
-            'sub-25',
-            'sub-26',
-            'sub-27',
+            # 'sub-01',
+            # 'sub-02',
+            # 'sub-03',
+            # 'sub-04',
+            # 'sub-05',
+            # 'sub-06',
+            # 'sub-07',
+            # 'sub-08',
+            # 'sub-09',
+            # 'sub-10',
+            # 'sub-11',
+            # 'sub-12',
+            # 'sub-13',
+            # 'sub-14',
+            # 'sub-15',
+            # 'sub-16',
+            # 'sub-17',
+            # 'sub-18',
+            # 'sub-19',
+            # 'sub-20',
+            # 'sub-21',
+            # 'sub-22',
+            # 'sub-23',
+            # 'sub-24',
+            # 'sub-25',
+            # 'sub-26',
+            # 'sub-27',
             'sub-28',
             ]
 
 for s in subjects:
     runs = np.sort([r.split('/')[-1] for r in glob.glob(os.path.join(raw_data, s, 'sub-*'))])
-    sjs_all.append([Subject(s, '?', None, None, None), runs],)
+    sjs_all.append([s, runs])
     
 def run_subject(sj, raw_data, project_directory, exp_name = 'detection_pupil'):
     
@@ -60,13 +56,13 @@ def run_subject(sj, raw_data, project_directory, exp_name = 'detection_pupil'):
     aliases = []
     for i in range(len(sj[1])):
         aliases.append('detection_{}_{}'.format(i+1, session_nrs[i]))
-    raw_data = [os.path.join(raw_data, sj[0].initials, f) for f in sj[1]] 
+    raw_data = [os.path.join(raw_data, sj[0], f) for f in sj[1]] 
     
-    if sj[0].initials in ('sub-01', 'sub-02', 'sub-03', 'sub-04', 'sub-05'):
+    if sj[0] in ('sub-01', 'sub-02', 'sub-03', 'sub-04', 'sub-05'):
         experiment = 1
     else:
         experiment = 2
-    if sj[0].initials in ['sub-01', 'sub-02', 'sub-04', 'sub-05', 'sub-07', 'sub-09', 'sub-11', 'sub-13', 'sub-15', 'sub-16', 'sub-17', 'sub-22', 'sub-23', 'sub-24', 'sub-25', 'sub-26']:
+    if sj[0] in ['sub-01', 'sub-02', 'sub-04', 'sub-05', 'sub-07', 'sub-09', 'sub-11', 'sub-13', 'sub-15', 'sub-16', 'sub-17', 'sub-22', 'sub-23', 'sub-24', 'sub-25', 'sub-26']:
         version = 1
     else:
         version = 2
@@ -74,8 +70,8 @@ def run_subject(sj, raw_data, project_directory, exp_name = 'detection_pupil'):
     # ------------------
     # PREPROCESSING:   -
     # ------------------
-    # pupilPreprocessSession = defs_pupil.pupilPreprocessSession(subject = sj[0], experiment_name = exp_name, experiment_nr = experiment, version = version, sample_rate_new=50, project_directory = project_directory,)
-    # pupilPreprocessSession.import_raw_data(raw_data, aliases)
+    pupilPreprocessSession = defs_pupil.pupilPreprocessSession(subject = sj[0], experiment_name = exp_name, experiment_nr = experiment, version = version, sample_rate_new=50, project_directory = project_directory,)
+    pupilPreprocessSession.import_raw_data(raw_data, aliases)
     # pupilPreprocessSession.delete_hdf5()
     # pupilPreprocessSession.import_all_data(aliases)
     # for alias in aliases:

@@ -1,12 +1,12 @@
 # 2014_PNAS
 This is the analysis code from de Gee JW, Knapen T &amp; Donner TH. 2014. Decision-related pupil dilation reflects upcoming choice and individual bias. Proceedings of the National Academy of Sciences USA, 111(5), E618-E625.
 
-I will soon update the pupil preprocessing part using a more modern pipeline. 
-
 For any questions or comments please email: jwdegee[AT]gmail.com.
 
 ## prerequisites
-https://github.com/VU-Cog-Sci/analysis_tools.git for the pupil preprocessing.
+https://github.com/tknapen/hedfpy/tree/jws_branch for the pupil preprocessing.
+
+
 
 ## license
 
